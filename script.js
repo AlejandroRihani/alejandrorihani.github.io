@@ -10,46 +10,91 @@ document.addEventListener('DOMContentLoaded', function () { //Barra de búsqueda
 
 document.addEventListener('DOMContentLoaded', function () { //Compartir link
     const shareButton = document.getElementById('share-button');
-    shareButton.addEventListener('click', function () {
-        const shareLink = getShareLink(); // Implement this function to get the share link
-        updateShareModal(shareLink);
-    });
+    if (shareButton) {
+        shareButton.addEventListener('click', function () {
+            const shareLink = getShareLink(); // Implement this function to get the share link
+            updateShareModal(shareLink);
+        });
+    }
 });
 
 document.addEventListener('DOMContentLoaded', function () {
     const moviesContainer = document.querySelector('.movies-container');
-    moviesContainer.addEventListener('click', function (event) {
-        const movieElement = event.target.closest('.movie');
-        if (movieElement) {
-            // Update the selectedMovieTitle when a movie is clicked
-            selectedMovieTitle = movieElement.querySelector('.informacion p').textContent;
-        }
-    });
+    if (moviesContainer) {
+        moviesContainer.addEventListener('click', function (event) {
+            const movieElement = event.target.closest('.movie');
+            if (movieElement) {
+                // Update the selectedMovieTitle when a movie is clicked
+                selectedMovieTitle = movieElement.querySelector('.informacion p').textContent;
+            }
+        });
+    }
 });
 
 document.addEventListener('DOMContentLoaded', function () { //Añadir comentario
-
-    // Handle form submission for adding comments
     const commentForm = document.getElementById('commentForm');
-    commentForm.addEventListener('submit', function (event) {
-        event.preventDefault();
+    if (commentForm) {
+        commentForm.addEventListener('submit', function (event) {
+            event.preventDefault();
 
-        // Get values from the form
-        const commentTitle = document.getElementById('commentTitle').value;
-        const commentText = document.getElementById('commentText').value;
-        const commentRating = document.getElementById('commentRating').value;
+            // Get values from the form
+            const commentTitle = document.getElementById('commentTitle').value;
+            const commentText = document.getElementById('commentText').value;
+            const commentRating = document.getElementById('commentRating').value;
 
-        // Add the comment using the imported function
-        addComment(selectedMovieTitle, commentTitle, commentText, commentRating);
+            // Add the comment using the imported function
+            addComment(selectedMovieTitle, commentTitle, commentText, commentRating);
 
-        // Clear the form
-        commentForm.reset();
-    });
+            // Clear the form
+            commentForm.reset();
+
+            // Actualizar la lista de comentarios luego de agregar uno nuevo
+            displayComments();
+        });
+    }
 });
 
 document.addEventListener('DOMContentLoaded', function () {
     // Display comments in Bootstrap cards
     displayComments();
+});
+
+// Listener para el botón de compartir reseña
+document.addEventListener('click', async (e) => {
+    if (e.target.classList.contains('share-btn')) {
+        const index = e.target.getAttribute('data-index');
+        const card = document.querySelectorAll('#commentsContainer .card')[index];
+
+        if (!card) return;
+
+        // Usar html2canvas para crear una captura de la tarjeta del comentario
+        html2canvas(card).then(canvas => {
+            const imageData = canvas.toDataURL('image/png');
+
+            if (navigator.share && navigator.canShare) {
+                fetch(imageData)
+                    .then(res => res.blob())
+                    .then(blob => {
+                        const filesArray = [
+                            new File([blob], 'reseña.png', { type: 'image/png' })
+                        ];
+
+                        if (navigator.canShare({ files: filesArray })) {
+                            navigator.share({
+                                title: 'Mira esta reseña',
+                                text: 'Te comparto esta reseña de película',
+                                files: filesArray
+                            }).catch(err => console.log('Error al compartir:', err));
+                        } else {
+                            downloadImage(imageData);
+                        }
+                    });
+            } else {
+                // Si no está disponible la Web Share API, se descarga la imagen
+                downloadImage(imageData);
+            }
+        });
+    }
 });
 
 function debounce(func, delay) {
@@ -68,10 +113,9 @@ async function searchMovies() {
 
     const contenedor_de_peliculas = document.querySelector(".movies-container");
 
-    // Validar entrada vacía
     if (!query) {
         console.log("empty query!");
-        contenedor_de_peliculas.innerHTML = ""; // Opcional: limpiar resultados
+        contenedor_de_peliculas.innerHTML = "";
         return;
     }
 
@@ -84,31 +128,25 @@ async function searchMovies() {
     };
 
     try {
-        // Realiza las solicitudes a la API
         const [moviesResponse, tvResponse] = await Promise.all([
             fetch(`https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(query)}&include_adult=true&language=es-MX&page=1`, options),
             fetch(`https://api.themoviedb.org/3/search/tv?query=${encodeURIComponent(query)}&include_adult=true&language=es-MX&page=1`, options)
         ]);
 
-        // Manejo de errores HTTP
         if (!moviesResponse.ok || !tvResponse.ok) {
             throw new Error(`Error HTTP: ${moviesResponse.status} y/o ${tvResponse.status}`);
         }
 
-        // Parsear las respuestas JSON
         const [movies, tv] = await Promise.all([moviesResponse.json(), tvResponse.json()]);
 
-        // Procesar las películas y series
         getMovies(movies);
         getTv(tv);
 
     } catch (error) {
         console.error('API Error:', error);
-        // Opcional: Mostrar un mensaje al usuario
         contenedor_de_peliculas.innerHTML = `<p>Error al cargar resultados. Inténtalo más tarde.</p>`;
     }
 }
-
 
 function getMovies(peliculas) {
     const template_peliculas = document.querySelector("#template-container");
@@ -141,12 +179,11 @@ function getMovies(peliculas) {
         if (movieElement) {
             const movieId = movieElement.getAttribute('data-id');
             const isMovie = movieElement.getAttribute('data-type') === 'movie';
-            const movieData = isMovie ? peliculas.results.find(movie => `movie-${movie.id}` === movieId) : series.results.find(tv => `tv-${tv.id}` === movieId);
+            const movieData = isMovie ? peliculas.results.find(movie => `movie-${movie.id}` === movieId) : null;
             loadDetailsModal(movieData, isMovie);
         }
     });
 
-    // Append the new content instead of replacing it
     contenedor_de_peliculas.appendChild(fragmento);
 }
 
@@ -185,7 +222,6 @@ function getTv(series) {
         }
     });
 
-    // Append the new content instead of replacing it
     contenedor_de_peliculas.appendChild(fragmento);
 }
 
@@ -199,130 +235,99 @@ function loadDetailsModal(data, isMovie) {
     const modalBody = document.querySelector('.modal-body');
 
     modalTitle.textContent = isMovie ? data.title : data.name;
-    modalBody.innerHTML = ''; // Clear previous modal content
+    modalBody.innerHTML = '';
 
     const modalContent = document.createElement('div');
 
-    // Extract the correct data ID based on the type (movie or TV)
-    const dataId = `#${isMovie ? 'movie' : 'tv'}-${data.id}`;
-
-    // Check if the necessary properties exist in the data object
     if (data.poster_path && data.overview && (isMovie ? data.release_date : data.first_air_date)) {
         modalContent.innerHTML = `
             <img src="https://image.tmdb.org/t/p/original${data.poster_path}" alt="${isMovie ? data.title : data.name}" class="modal-poster">
             <p>${data.overview}</p>
             <p>${isMovie ? 'Release Date' : 'First Air Date'}: ${isMovie ? data.release_date : data.first_air_date}</p>
-            <!-- Add more details as needed -->
         `;
     } else {
         modalContent.textContent = 'Details not available.';
     }
 
     const addToCollectionButton = document.getElementById('collection-button');
-
-    // Remove previous click event listener to avoid multiple executions
     addToCollectionButton.onclick = null;
 
-    // Add a new click event listener
     addToCollectionButton.onclick = function () {
-        addToPersonalCollection(data); // Use 'data' instead of 'movie'
+        addToPersonalCollection(data);
         alert('Movie/TV series added to your collection!');
     };
 
     modalBody.appendChild(modalContent);
 }
 
-function loadDetailsModalMovie(movie) {
-    loadDetailsModal(movie, true);
-}
-
-function loadDetailsModalTV(tv) {
-    loadDetailsModal(tv, false);
-}
-
-// Function to get the share link (replace this with the actual link generation logic)
+// Funciones de compartir
 function getShareLink() {
-    // Implement your logic to get the share link based on the selected movie
-    // For example, you can use the movie ID or other unique identifier
-    const selectedMovieId = getSelectedMovieId(); // Implement this function to get the selected movie ID
+    const selectedMovieId = getSelectedMovieId();
     return `https://movieadmin.com/movie/${selectedMovieId}`;
 }
 
-// Function to update the share modal content
 function updateShareModal(shareLink) {
     const shareLinkParagraph = document.getElementById('shareModalLabel');
     shareLinkParagraph.textContent = `Compartir este enlace: ${shareLink}`;
 }
 
-// Function to get the selected movie ID (replace this with the actual logic)
 function getSelectedMovieId() {
-    // Implement your logic to get the selected movie ID
-    // For example, you can use data attributes or other properties of the selected movie
-    const selectedMovieElement = document.querySelector('.movie'); // Update this selector based on your structure
-    return selectedMovieElement.dataset.id; // Adjust this property based on your movie ID property
+    const selectedMovieElement = document.querySelector('.movie');
+    return selectedMovieElement ? selectedMovieElement.dataset.id : '';
 }
 
 function displayComments() {
-    // Retrieve comments from local storage
     const comments = JSON.parse(localStorage.getItem('movieComments')) || [];
-
-    // Get the container where you want to display the cards
     const commentsContainer = document.getElementById('commentsContainer');
 
-    // Clear existing content
+    if (!commentsContainer) return;
+
     commentsContainer.innerHTML = '';
 
-    // Iterate over comments and create Bootstrap cards
-    comments.forEach(comment => {
+    comments.forEach((comment, index) => {
         const card = document.createElement('div');
         card.classList.add('card', 'mb-3');
 
         const cardBody = document.createElement('div');
         cardBody.classList.add('card-body');
 
-        // Card title (movie)
         const cardTitle = document.createElement('h5');
         cardTitle.classList.add('card-title');
         cardTitle.textContent = comment.movieTitle;
 
-        // Card subtitle (comment title)
         const cardSubtitle = document.createElement('h6');
         cardSubtitle.classList.add('card-subtitle', 'mb-2', 'text-muted');
         cardSubtitle.textContent = comment.commentTitle;
 
-        // Card text (comment)
         const cardText = document.createElement('p');
         cardText.classList.add('card-text');
         cardText.textContent = comment.commentText;
 
-        // Card rating
         const cardRating = document.createElement('p');
         cardRating.classList.add('card-text');
         cardRating.textContent = `Rating: ${comment.commentRating} ⭐`;
+
+        // Botón de compartir reseña
+        const shareButton = document.createElement('button');
+        shareButton.classList.add('btn', 'btn-primary', 'share-btn');
+        shareButton.textContent = 'Compartir Reseña';
+        shareButton.setAttribute('data-index', index);
 
         // Append elements to card body
         cardBody.appendChild(cardTitle);
         cardBody.appendChild(cardSubtitle);
         cardBody.appendChild(cardText);
         cardBody.appendChild(cardRating);
+        cardBody.appendChild(shareButton);
 
-        // Append card body to card
         card.appendChild(cardBody);
-
-        // Append card to container
         commentsContainer.appendChild(card);
     });
 }
 
-// module.exports = {
-//     debounce,
-//     searchMovies,
-//     getMovies,
-//     getTv,
-//     clearScreen,
-//     loadDetailsModal,
-//     getShareLink,
-//     updateShareModal,
-//     getSelectedMovieId,
-//     displayComments,
-// };
+function downloadImage(imageData) {
+    const link = document.createElement('a');
+    link.href = imageData;
+    link.download = 'reseña.png';
+    link.click();
+}
